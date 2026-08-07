@@ -18,6 +18,12 @@ cliente + Radar de Pedidos**. Transforma o conhecimento tácito do pós-venda
   recalculam automaticamente (trigger no Postgres).
 - **Conversas**: inbox alimentado pelo webhook da Evolution API (gateway
   não oficial — decisão registrada no doc 05), com envio pelo sistema.
+- **IA comercial (Fase 4)**: botão "Gerar com IA" no Radar redige a
+  abordagem usando o perfil do cliente, os fatos comportamentais e o
+  playbook; extração de fatos das conversas com evidência; toda sugestão
+  fica registrada (rascunho vs. enviado = dado de treino).
+- **Playbook comercial**: o DNA D'GUST — abordagens que funcionam,
+  registradas por qualquer vendedor, com taxa de conversão medida.
 - **Equipe**: primeiro usuário cadastrado vira admin; os demais aguardam
   aprovação (protege a URL pública).
 
@@ -33,8 +39,9 @@ cliente + Radar de Pedidos**. Transforma o conhecimento tácito do pós-venda
 ### 1. Supabase (banco + auth)
 
 1. Crie um projeto em [supabase.com](https://supabase.com) (plano gratuito serve).
-2. No **SQL Editor**, cole e execute o conteúdo de
-   [`supabase/migrations/20260807000001_dgust_continuidade.sql`](supabase/migrations/20260807000001_dgust_continuidade.sql).
+2. No **SQL Editor**, cole e execute, na ordem, as migrações de
+   [`supabase/migrations/`](supabase/migrations/)
+   (`..._dgust_continuidade.sql` e depois `..._fase4_ia.sql`).
 3. (Opcional, para demonstração) execute também [`supabase/seed.sql`](supabase/seed.sql)
    — cria clientes fictícios para o radar exibir todos os estados.
 4. Em **Settings → API**, copie: `Project URL`, `anon public key` e
@@ -53,6 +60,8 @@ cliente + Radar de Pedidos**. Transforma o conhecimento tácito do pós-venda
    - `EVOLUTION_API_URL`, `EVOLUTION_API_KEY`, `EVOLUTION_INSTANCE`
      (opcionais — sem eles o envio direto fica desativado; copiar mensagem e
      abrir no WhatsApp continuam funcionando)
+   - `ANTHROPIC_API_KEY` (opcional — habilita "Gerar com IA" e a extração
+     de fatos; chave em [console.anthropic.com](https://console.anthropic.com))
 3. Deploy. Acesse a URL, **crie sua conta — o primeiro usuário vira admin**.
 
 ### 3. Evolution API (gateway WhatsApp — quando for conectar o número)
@@ -97,6 +106,7 @@ supabase/seed.sql          dados de demonstração (opcional)
 
 ## Roadmap
 
-Este MVP cobre as Fases 1–3 do [roadmap](docs/continuidade-comercial/06-roadmap.md).
-Próximas fases: extração de fatos por IA a partir das conversas, playbook
-comercial (DNA D'GUST) e níveis de automação 2–3.
+Este MVP cobre as Fases 1–4 do [roadmap](docs/continuidade-comercial/06-roadmap.md):
+fundação de dados, radar, gateway/central de mensagens e o copiloto de IA
+(sugestões + extração de fatos + playbook). Próximas fases: automação
+supervisionada (nível 2) e carteira autônoma (nível 3).

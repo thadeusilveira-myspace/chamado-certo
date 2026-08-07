@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Copy, ExternalLink, Loader2, PackagePlus, Send } from "lucide-react";
+import { Copy, ExternalLink, Loader2, PackagePlus, Send, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatBRL } from "@/lib/utils";
 import {
@@ -123,7 +123,7 @@ function RadarCard({ entry, contact }: { entry: RadarEntry; contact: Contact | n
           </div>
 
           {actionable && !entry.do_not_contact && contact && (
-            <SuggestionBox message={msg} contact={contact} />
+            <SuggestionBox message={msg} contact={contact} customerId={entry.customer_id} />
           )}
           {actionable && !contact && (
             <p className="text-xs text-amber-600">Cliente sem contato de WhatsApp cadastrado.</p>
@@ -152,10 +152,42 @@ function Info({ label, value }: { label: string; value: string }) {
   );
 }
 
-function SuggestionBox({ message, contact }: { message: string; contact: Contact }) {
+function SuggestionBox({ message, contact, customerId }: { message: string; contact: Contact; customerId: string }) {
   const [text, setText] = useState(message);
+  const [rationale, setRationale] = useState<string | null>(null);
+  const [suggestionId, setSuggestionId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const queryClient = useQueryClient();
+
+  // marca a sugestão de IA como usada (draft vs. enviado = dado de treino)
+  const recordUsage = async (status: string) => {
+    if (!suggestionId) return;
+    await supabase.from("outreach_suggestions")
+      .update({ status, sent_message: text })
+      .eq("id", suggestionId);
+  };
+
+  const generateWithAI = async () => {
+    setGenerating(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/suggest-message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ customer_id: customerId }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error ?? `Erro ${res.status}`);
+      setText(body.message);
+      setRationale(body.rationale ?? null);
+      setSuggestionId(body.suggestion_id ?? null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Falha ao gerar sugestão");
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const sendViaGateway = async () => {
     setSending(true);
@@ -169,6 +201,7 @@ function SuggestionBox({ message, contact }: { message: string; contact: Contact
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error ?? `Erro ${res.status}`);
       toast.success("Mensagem enviada pelo gateway");
+      recordUsage("editada_e_enviada");
       queryClient.invalidateQueries({ queryKey: ["conversas"] });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Falha ao enviar");
@@ -179,11 +212,19 @@ function SuggestionBox({ message, contact }: { message: string; contact: Contact
 
   return (
     <div className="rounded-lg bg-muted p-3 space-y-2">
-      <p className="text-[11px] font-bold text-muted-foreground">SUGESTÃO DE ABORDAGEM — {contact.name}</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[11px] font-bold text-muted-foreground">SUGESTÃO DE ABORDAGEM — {contact.name}</p>
+        <button onClick={generateWithAI} disabled={generating}
+          className="flex items-center gap-1 text-[11px] font-bold text-primary">
+          {generating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+          Gerar com IA
+        </button>
+      </div>
       <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2}
         className="w-full rounded-lg border bg-background p-2 text-sm" />
+      {rationale && <p className="text-[11px] text-muted-foreground italic">💡 {rationale}</p>}
       <div className="flex flex-wrap gap-2">
-        <button onClick={() => { navigator.clipboard.writeText(text); toast.success("Copiado"); }}
+        <button onClick={() => { navigator.clipboard.writeText(text); toast.success("Copiado"); recordUsage("aprovada"); }}
           className="flex items-center gap-1 text-xs font-semibold rounded-lg border px-3 py-1.5 bg-background">
           <Copy className="w-3 h-3" /> Copiar
         </button>

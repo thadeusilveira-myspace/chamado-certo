@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Loader2, Plus } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatBRL, formatDate } from "@/lib/utils";
 import { RADAR_META, DOW_NAMES, stripZeros, type RadarEntry } from "@/lib/radar";
@@ -124,7 +124,10 @@ function ClienteDetail() {
             left={<span><em className="not-italic text-[10px] font-bold text-muted-foreground mr-2">{f.fact_type.toUpperCase()}</em>{f.value}</span>}
             right={<span className="text-[10px] text-muted-foreground">{f.source}</span>} />
         ))}
-        <AddFact customerId={id} onDone={refresh} />
+        <div className="flex flex-wrap gap-4 items-center">
+          <AddFact customerId={id} onDone={refresh} />
+          <ExtractFactsButton customerId={id} onDone={refresh} />
+        </div>
       </Section>
 
       {/* Pedidos */}
@@ -205,6 +208,40 @@ function AddFact({ customerId, onDone }: { customerId: string; onDone: () => voi
         Salvar
       </button>
     </form>
+  );
+}
+
+function ExtractFactsButton({ customerId, onDone }: { customerId: string; onDone: () => void }) {
+  const [running, setRunning] = useState(false);
+
+  const run = async () => {
+    setRunning(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/extract-facts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ customer_id: customerId }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error ?? `Erro ${res.status}`);
+      toast.success(body.extracted > 0
+        ? `${body.extracted} fato(s) novo(s) extraído(s) das conversas`
+        : "Nenhum fato novo encontrado nas conversas");
+      onDone();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Falha na extração");
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <button onClick={run} disabled={running}
+      className="flex items-center gap-1 text-sm text-primary py-2">
+      {running ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+      Extrair fatos das conversas (IA)
+    </button>
   );
 }
 

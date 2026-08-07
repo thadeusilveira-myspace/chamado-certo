@@ -1,6 +1,6 @@
 import { Link, Outlet, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { Radar, Users, Package, MessageCircle, UserCog, LogOut, Loader2 } from "lucide-react";
+import { Radar, Users, Package, MessageCircle, BookOpen, UserCog, LogOut, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 
@@ -11,6 +11,7 @@ const NAV = [
   { to: "/clientes", label: "Clientes", icon: Users },
   { to: "/pedidos",  label: "Pedidos",  icon: Package },
   { to: "/conversas", label: "Conversas", icon: MessageCircle },
+  { to: "/playbook", label: "Playbook", icon: BookOpen },
   { to: "/equipe",   label: "Equipe",   icon: UserCog },
 ] as const;
 

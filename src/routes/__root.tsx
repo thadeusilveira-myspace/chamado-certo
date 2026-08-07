@@ -1,22 +1,7 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Outlet, createRootRouteWithContext, HeadContent, Scripts } from "@tanstack/react-router";
-import type { ReactNode } from "react";
-import appCss from "../styles.css?url";
-import { AuthProvider } from "@/hooks/use-auth";
-import { Toaster } from "sonner";
+import { Outlet, createRootRoute } from "@tanstack/react-router";
 
-export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  head: () => ({
-    meta: [
-      { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Chamado Certo — Reparos residenciais com garantia" },
-      { name: "description", content: "Conecte-se a profissionais verificados para reparos elétricos, hidráulicos, pintura e mais. Garantia de 90 dias na mão de obra." },
-    ],
-    links: [{ rel: "stylesheet", href: appCss }],
-  }),
-  shellComponent: RootShell,
-  component: RootComponent,
+export const Route = createRootRoute({
+  component: () => <Outlet />,
   notFoundComponent: () => (
     <div className="flex min-h-screen items-center justify-center">
       <div className="text-center">
@@ -27,30 +12,3 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     </div>
   ),
 });
-
-function RootShell({ children }: { children: ReactNode }) {
-  return (
-    <html lang="pt-BR">
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('cc-theme');if(t==='dark')document.documentElement.classList.add('dark');}catch(e){}})();` }} />
-        <HeadContent />
-      </head>
-      <body>
-        {children}
-        <Scripts />
-      </body>
-    </html>
-  );
-}
-
-function RootComponent() {
-  const { queryClient } = Route.useRouteContext();
-  return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <Outlet />
-        <Toaster position="top-center" richColors />
-      </AuthProvider>
-    </QueryClientProvider>
-  );
-}

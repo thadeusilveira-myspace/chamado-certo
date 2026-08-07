@@ -2,26 +2,25 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-export type AppRole = "contratante" | "profissional" | "admin";
+export type AppRole = "operador" | "admin";
 
 interface AuthState {
   user: User | null;
   session: Session | null;
-  role: AppRole | null;       // papel ativo
-  allRoles: AppRole[];        // todos os papéis do usuário
+  roles: AppRole[];
+  isTeam: boolean;    // tem pelo menos um papel → acesso liberado
+  isAdmin: boolean;
   loading: boolean;
   signOut: () => Promise<void>;
-  setActiveRole: (r: AppRole) => void;
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session,  setSession]  = useState<Session | null>(null);
-  const [user,     setUser]     = useState<User | null>(null);
-  const [role,     setRole]     = useState<AppRole | null>(null);
-  const [allRoles, setAllRoles] = useState<AppRole[]>([]);
-  const [loading,  setLoading]  = useState(true);
+  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [roles, setRoles] = useState<AppRole[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
@@ -30,8 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (newSession?.user) {
         resolveRoles(newSession.user.id);
       } else {
-        setRole(null);
-        setAllRoles([]);
+        setRoles([]);
         setLoading(false);
       }
     });
@@ -43,33 +41,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data } = await supabase
       .from("user_roles")
       .select("role")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: true });
-
-    const roles = (data ?? []).map((r) => r.role as AppRole);
-    setAllRoles(roles);
-
-    const saved = localStorage.getItem("cc-role-pref") as AppRole | null;
-    const effective = saved && roles.includes(saved) ? saved : (roles[0] ?? "contratante");
-    setRole(effective);
+      .eq("user_id", userId);
+    setRoles((data ?? []).map((r) => r.role as AppRole));
     setLoading(false);
   }
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    setRole(null);
-    setAllRoles([]);
-    localStorage.removeItem("cc-role-pref");
-  };
-
-  const setActiveRole = (newRole: AppRole) => {
-    if (!allRoles.includes(newRole)) return;
-    localStorage.setItem("cc-role-pref", newRole);
-    setRole(newRole);
+    setRoles([]);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, role, allRoles, loading, signOut, setActiveRole }}>
+    <AuthContext.Provider value={{
+      user, session, roles,
+      isTeam: roles.length > 0,
+      isAdmin: roles.includes("admin"),
+      loading, signOut,
+    }}>
       {children}
     </AuthContext.Provider>
   );

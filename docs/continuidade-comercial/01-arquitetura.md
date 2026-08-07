@@ -3,8 +3,8 @@
 ## Visão geral
 
 ```
-                        WHATSAPP BUSINESS PLATFORM
-                     (Cloud API + webhooks, via BSP)
+                      WHATSAPP (número atual da operação)
+                (gateway não oficial: Evolution API/Baileys)
                                   │
                                   ▼
                        ┌─────────────────────┐
@@ -15,7 +15,7 @@
                    ┌──────────────┴──────────────┐
                    ▼                             ▼
         HISTÓRICO DO CLIENTE               CONVERSA ATUAL
-        (mensagens + pedidos)            (janela de 24h ativa?)
+        (mensagens + pedidos)            (IA ou humano conduzindo?)
                    │                             │
                    └──────────────┬──────────────┘
                                   ▼
@@ -56,14 +56,17 @@
 ## Componentes
 
 ### 1. Gateway WhatsApp
-Integração com a WhatsApp Business Platform via BSP (ver doc 05).
-Responsabilidades:
-- receber webhooks (mensagem recebida, status de entrega/leitura);
-- enviar mensagens livres (dentro da janela de 24h) e templates (fora dela);
+Integração via gateway **não oficial** — Evolution API self-hosted sobre o
+número atual (decisão e registro de riscos no doc 05). Responsabilidades:
+- receber webhooks (mensagem recebida/enviada, acks, sessão);
+- enviar mensagens pela **fila com disciplina de envio** (throttle,
+  espaçamento aleatório, teto diário, horário comercial) — como não há
+  limites impostos pela plataforma, os limites são nossos;
 - normalizar tudo em **eventos** persistidos (`wa_messages`).
 
-É a única peça que conhece a API do WhatsApp. Trocar de BSP não pode afetar
-o resto do sistema.
+É a única peça que conhece o WhatsApp. Isolamento aqui é duplamente
+importante: se o protocolo quebrar ou migrarmos para a API oficial no
+futuro, o resto do sistema não muda.
 
 ### 2. Central de Mensagens (inbox operacional)
 Interface onde a equipe vê e responde conversas. Diferença para o WhatsApp
@@ -104,9 +107,10 @@ painel de receita esperada. É a interface principal da operação.
    para sempre, se necessário.
 3. **Humano a um toque.** Qualquer conversa conduzida por IA pode ser
    assumida por humano instantaneamente, com todo o contexto na tela.
-4. **A janela de 24h é modelada no domínio** (não tratada como detalhe de
-   infra): cada conversa carrega `service_window_expires_at`, e o motor de
-   decisão escolhe entre mensagem livre e template com base nisso.
+4. **Disciplina de envio no gateway.** No gateway não oficial não há limites
+   impostos pela plataforma — throttle, espaçamento, teto diário e limites
+   de insistência são responsabilidade do nosso código (doc 05, R1). Nenhum
+   componente envia mensagem direto: tudo passa pela fila do gateway.
 5. **Auditabilidade.** Toda mensagem enviada por IA registra: qual regra ou
    sugestão a originou, qual nível de automação estava ativo e quem aprovou
    (quando aplicável).
@@ -118,4 +122,4 @@ painel de receita esperada. É a interface principal da operação.
 - **Frontend**: TanStack Start + React (inbox + radar + perfil do cliente).
 - **LLM**: API da Anthropic (extração de fatos, redação, classificação de
   respostas). Tarefas de classificação podem usar modelo menor/mais barato.
-- **WhatsApp**: Cloud API via BSP (Twilio, 360dialog ou Gupshup) — doc 05.
+- **WhatsApp**: Evolution API self-hosted (gateway não oficial) — doc 05.

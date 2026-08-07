@@ -53,23 +53,26 @@ Regras importantes:
 
 ## Bootstrapping: de onde vem o histórico inicial
 
-A API oficial **não** dá acesso retroativo às conversas antigas do número.
-Estratégias para não começar do zero:
+Com o gateway não oficial (doc 05), ao conectar a sessão temos **leitura do
+histórico de conversas da conta** — essa é uma das grandes vantagens da
+decisão tomada. O plano:
 
-1. **Coexistência (Meta)**: ao conectar um número do app WhatsApp Business à
-   Cloud API no modo coexistência, a Meta sincroniza os últimos ~6 meses de
-   histórico de conversas para a plataforma. É o melhor caminho se o número
-   atual da operação for do WhatsApp Business App. Confirmar disponibilidade
-   com o BSP escolhido.
-2. **Exportação manual**: exportar conversas dos principais clientes
-   (`Exportar conversa` no app) e ingerir os `.txt` num pipeline de parsing +
-   extração de fatos. Trabalhoso, mas viável para os top 30–50 clientes.
-3. **Entrevista estruturada com a vendedora**: sessão guiada onde ela revisa
+1. **Ingestão do histórico via gateway**: ao parear o número na Evolution
+   API, sincronizar as conversas existentes e rodar o pipeline de extração
+   de fatos sobre elas, começando pelos top 50 clientes. A profundidade do
+   histórico disponível depende do que está no aparelho/conta — validar na
+   prática e complementar com exportação manual (`Exportar conversa` no app)
+   para clientes importantes com histórico incompleto.
+2. **Entrevista estruturada com a vendedora**: sessão guiada onde ela revisa
    a carteira cliente a cliente e o sistema registra o que ela sabe como
-   fatos semente (`source = 'humano'`). Isso é também o primeiro passo da
-   captura do conhecimento tácito — vale fazer independentemente das outras.
-4. **Pedidos históricos**: se existirem em planilha/caderno/ERP, importar —
-   as estatísticas de ciclo ficam boas com ~4–6 pedidos por cliente.
+   fatos semente (`source = 'humano'`). A extração automática dá o *o quê*
+   (datas, quantidades, padrões); a entrevista dá o *porquê* (quem decide,
+   como abordar, o que nunca fazer). Fazer independentemente da ingestão.
+3. **Pedidos históricos**: se existirem em planilha/caderno/ERP, importar —
+   as estatísticas de ciclo ficam boas com ~4–6 pedidos por cliente. Pedidos
+   também podem ser reconstruídos das próprias conversas ingeridas (a IA
+   identifica confirmações de pedido no histórico e sugere o registro, com
+   revisão humana).
 
 ## Modelo de dados
 
@@ -80,7 +83,7 @@ Schema SQL de referência completo em
 |---|---|
 | `customers` | Cliente (estabelecimento) + nível de automação + estado do radar |
 | `customer_contacts` | Pessoas do cliente (João da Padaria X), com papel de decisor |
-| `wa_conversations` | Conversas, com controle da janela de 24h |
+| `wa_conversations` | Conversas (atribuição a humano/IA; campo de janela de 24h reservado p/ eventual API oficial) |
 | `wa_messages` | Todas as mensagens (evento imutável), com direção, autor (humano/IA), status |
 | `orders` / `order_items` | Pedidos e itens — a verdade estruturada |
 | `customer_facts` | Fatos comportamentais extraídos, com evidência e confiança |

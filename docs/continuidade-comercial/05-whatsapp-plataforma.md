@@ -1,93 +1,127 @@
-# Plataforma WhatsApp
+# Gateway WhatsApp (não oficial)
 
-## Decisão: API oficial, não automação de navegador
+## Decisão
 
-| | WhatsApp Web automatizado (Puppeteer/whatsapp-web.js/Z-API não oficial) | WhatsApp Business Platform (Cloud API via BSP) |
+> **Decisão de negócio (registrada): a operação NÃO usará a API oficial
+> (WhatsApp Business Platform). Usaremos gateway não oficial, assumindo o
+> risco de banimento do número.**
+
+Motivações práticas dessa escolha:
+
+- **custo zero por mensagem** (a API oficial cobra por conversa);
+- **sem janela de 24h e sem templates** — contato proativo livre, que é
+  exatamente o formato do pós-venda da D'GUST;
+- **histórico completo acessível** ao conectar a sessão — resolve o
+  bootstrapping da Memória Comercial de graça (a API oficial não dá acesso
+  retroativo às conversas);
+- **o celular continua funcionando** — a conexão é um "aparelho conectado"
+  (multi-device), então a Beid segue usando o app normalmente;
+- entrada em produção em dias, sem contratação de BSP nem aprovação Meta.
+
+O custo é o risco: violação dos termos de uso do WhatsApp, possibilidade de
+banimento do número, e protocolo que pode quebrar quando o WhatsApp atualiza.
+O resto deste documento existe para **administrar esse risco**, não para
+ignorá-lo.
+
+## Escolha da biblioteca/gateway
+
+| Opção | O que é | Avaliação |
 |---|---|---|
-| Termos de uso | Viola; **risco real de banimento do número** — o número é o ativo comercial da operação | Oficial |
-| Webhooks/eventos | Frágeis, engenharia reversa | Nativos e documentados |
-| Estabilidade | Quebra a cada update do WhatsApp | SLA do BSP |
-| Multi-atendente | Gambiarra | Nativo |
-| Uso aceitável | No máximo protótipo interno descartável de leitura | Produção |
+| **Evolution API** | Servidor open source brasileiro (self-hosted), REST + webhooks, gerencia sessões, construído sobre Baileys | **Recomendada.** Entrega o gateway quase pronto: envio, recebimento via webhook, gestão de sessão/QR, mídia. Comunidade grande no Brasil |
+| **Baileys** | Biblioteca Node que fala o protocolo multi-device via WebSocket, sem navegador | Boa se quisermos controle total; mais trabalho de infra que a Evolution |
+| whatsapp-web.js | Puppeteer + Chrome headless controlando o WhatsApp Web | Mais pesada e mais frágil (depende do DOM do WhatsApp Web); evitar |
+| Z-API e similares | Gateways não oficiais comerciais (SaaS) | Terceiriza a infra, mas coloca as conversas da carteira em um terceiro; se for usar, avaliar contrato e privacidade |
 
-Conclusão: protótipo de *leitura* para validar a extração de fatos pode usar
-uma sessão web observada. **Nenhuma mensagem automática sai por aí.** A
-operação definitiva é 100% Cloud API.
+Sugestão: **Evolution API self-hosted** (VPS própria), conectada ao número
+atual via QR code. O gateway (doc 01) conversa só com a Evolution — se um dia
+migrarmos para a API oficial ou trocarmos de biblioteca, o resto do sistema
+não muda.
 
-## A regra que molda a arquitetura: janela de 24h
+## Registro de riscos e mitigações
 
-- Quando o **cliente** manda mensagem, abre uma janela de atendimento de
-  **24 horas** em que a empresa pode enviar mensagens livres (texto normal).
-- Fora da janela, contato iniciado pela empresa **só via template
-  pré-aprovado** pela Meta (com variáveis, ex.:
-  `"Olá {{1}}! Vou fechar sua entrega de {{2}}. Mantenho as {{3}} de sempre?"`).
+### R1 — Banimento do número (o risco central)
 
-Como o pós-venda da D'GUST é **proativo e recorrente**, a maior parte dos
-contatos do Radar começa **fora de janela** → começa por template. Isso
-precisa estar no domínio desde o início:
+O número é o ativo comercial: é ele que os clientes conhecem. Mitigações:
 
-- `wa_conversations.service_window_expires_at` controla a janela;
-- o motor de envio decide automaticamente: janela aberta → mensagem livre;
-  fechada → template adequado da biblioteca;
-- o objetivo do template é **fazer o cliente responder** — a resposta reabre
-  a janela de 24h e a conversa flui livre a partir daí;
-- biblioteca de templates versionada no banco (`wa_templates`), com status de
-  aprovação Meta e taxa de resposta medida por template.
+**Reduzir sinais de spam (prevenção):**
+- mensagens **apenas para contatos existentes**, que já conversam com a
+  empresa — conversas bidirecionais têm risco baixo; nunca prospectar
+  números frios por este canal;
+- **fila de envio com throttle**: espaçamento aleatório entre envios
+  (ex.: 30–90s), teto diário de mensagens proativas, janela de envio só em
+  horário comercial;
+- mensagens **personalizadas por cliente** (o sistema já faz isso por
+  design — o playbook proíbe blast idêntico em massa);
+- limites de insistência do doc 04 (1 lembrete + 1 follow-up por ciclo);
+- `do_not_contact` absoluto — cliente que pediu para não receber nunca mais
+  recebe (bloqueio/denúncia é o principal gatilho de ban);
+- não enviar para quem nunca respondeu nada em N ciclos — parar e passar
+  para tratamento humano por outro canal.
 
-Categorias e custo: templates são classificados pela Meta (utility/marketing)
-com precificação por conversa que varia por categoria. Lembrete de pedido
-recorrente tende a utility (mais barato), mas a Meta pode reclassificar —
-acompanhar via BSP.
+**Sobreviver ao ban (contingência):**
+- **a Memória Comercial vive no nosso banco, não no WhatsApp** — se o número
+  cair amanhã, perfis, ciclos, fatos e playbook estão intactos. Essa é a
+  essência do projeto: o conhecimento deixa de morar no aparelho;
+- exportar/sincronizar a agenda de contatos regularmente (telefone de cada
+  contato já está em `customer_contacts`);
+- manter um **número secundário já aquecido** (chip da empresa, usado
+  ocasionalmente para conversas reais) pronto para assumir;
+- playbook de recuperação documentado: (1) tentar apelação no suporte do
+  WhatsApp; (2) ativar número secundário; (3) comunicar a carteira por
+  ligação/SMS usando os dados do sistema — com o radar, sabemos exatamente
+  quem contatar primeiro (clientes 🔴🟡 do dia).
 
-**Opt-in**: envio proativo requer consentimento prévio do destinatário
-(política Meta e boa prática LGPD). Para a carteira atual, o relacionamento
-comercial existente + registro do aceite na conversa resolve; formalizar
-para clientes novos (ex.: no cadastro).
+### R2 — Protocolo quebra após atualização do WhatsApp
 
-## Número atual e histórico: coexistência
+- Acontece periodicamente com toda biblioteca não oficial; a correção
+  costuma vir em dias (comunidade Baileys/Evolution é ativa).
+- Mitigação: monitoramento de saúde da sessão (alerta se desconectar);
+  **modo degradado documentado** — enquanto o gateway estiver fora, a
+  operação volta ao app no celular usando o radar como fila (o radar não
+  depende do gateway para calcular, só de pedidos registrados);
+- fixar versão da Evolution/Baileys e atualizar de forma controlada.
 
-Ponto crítico para a D'GUST: o relacionamento está num número que os clientes
-já conhecem.
+### R3 — Sessão derrubada / re-pareamento
 
-- **Modo coexistência (Meta)**: permite conectar um número do **WhatsApp
-  Business App** à Cloud API **mantendo o app funcionando** no celular, e
-  sincroniza ~6 meses de histórico de conversas e os contatos para a
-  plataforma. É o caminho ideal: preserva o número, o app da vendedora e
-  ainda alimenta o bootstrapping da Memória Comercial (doc 02).
-- Verificar com o BSP escolhido o suporte a coexistência e restrições
-  (disponível para números do Business App, com limitações regionais).
-- Alternativa, se coexistência não estiver disponível: migrar o número para
-  a API (o app deixa de funcionar para ele) — decisão operacional maior;
-  ou operar com número novo para o sistema (pior: perde o reconhecimento).
+- A sessão multi-device pode ser desconectada (ex.: celular muito tempo
+  offline, logout acidental).
+- Mitigação: alerta imediato + re-pareamento por QR em minutos; o celular
+  principal precisa ficar ligado e com internet (responsabilidade
+  operacional definida).
 
-## Escolha de BSP (Business Solution Provider)
+### R4 — Privacidade
 
-Candidatos com boa operação no Brasil: **Twilio**, **360dialog**,
-**Gupshup**, **Infobip**. Critérios de escolha:
+- Self-hosted (Evolution em VPS própria) mantém as conversas sob controle
+  da empresa — motivo para preferir self-hosted a SaaS não oficial.
+- Aplicam-se as regras de LGPD do doc 02 (opt-out, retenção, não registrar
+  dados sensíveis).
 
-1. suporte a coexistência;
-2. preço por conversa + mensalidade (360dialog costuma ser o mais direto:
-   taxa fixa + repasse Meta; Twilio cobra por mensagem com markup);
-3. qualidade de webhooks e sandbox para desenvolvimento;
-4. gestão de templates via API.
+## O que muda em relação ao desenho com API oficial
 
-A camada de gateway (doc 01) isola o BSP — trocar depois não pode doer.
+| Tema | Com API oficial | **Com gateway não oficial (nossa decisão)** |
+|---|---|---|
+| Janela de 24h / templates | Regra central do domínio | **Não existe** — mensagem livre a qualquer momento. `service_window_expires_at` e `wa_templates` ficam no schema como reserva para migração futura, sem uso |
+| Histórico | Sem acesso retroativo (só coexistência ~6 meses) | **Leitura do histórico da conta** ao conectar — alimenta a extração de fatos direto |
+| Custo | Por conversa + BSP | Infra própria (~custo de uma VPS) |
+| Disciplina de envio | Imposta pela plataforma (tiers, quality rating) | **Imposta por nós** no gateway (throttle, tetos, horário) — vira responsabilidade do nosso código |
+| Continuidade | SLA do BSP | Plano de contingência R1–R3 acima |
 
-## Saúde do número
-
-- **Quality rating** da Meta: cai com bloqueios/denúncias de destinatários.
-  Insistência automática mal calibrada derruba o rating e limita o volume
-  de templates → mais um motivo para os limites de insistência do doc 04.
-- Limites de envio (messaging tiers) sobem com volume + qualidade; para a
-  carteira atual (~100 clientes) o tier inicial já é suficiente.
-
-## Eventos consumidos do webhook
+## Eventos consumidos (via webhook da Evolution)
 
 | Evento | Uso no sistema |
 |---|---|
-| `message` (inbound) | Abre/renova janela 24h; classificação da resposta; extração de fatos; recálculo do radar |
-| `status: sent/delivered/read` | Métricas de abordagem (template lido e não respondido ≠ não entregue) |
-| `status: failed` | Alerta operacional (número inválido, bloqueio) |
+| mensagem recebida | Classificação da resposta; extração de fatos; recálculo do radar |
+| mensagem enviada (inclusive pelo app do celular) | Registro completo da conversa — o que a Beid mandar pelo celular também entra na observação da Fase 4 |
+| ack (entregue/lida) | Métricas de abordagem (lida e não respondida ≠ não entregue) |
+| desconexão de sessão | Alerta operacional (R3) |
 
-Todos persistidos brutos em `wa_messages` antes de qualquer processamento —
-o processamento é reexecutável.
+Todos persistidos brutos em `wa_messages.raw_payload` antes de qualquer
+processamento — o processamento é reexecutável.
+
+## Porta aberta para o futuro
+
+Se a operação escalar (mais números, mais volume, equipe maior) ou o risco
+se materializar de forma cara, a migração para a API oficial continua
+possível a qualquer momento: o gateway é a única peça que muda, e o domínio
+já tem os campos de janela/template reservados. A decisão de hoje não
+fecha essa porta.

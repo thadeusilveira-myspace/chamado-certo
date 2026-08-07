@@ -76,7 +76,8 @@ CREATE TABLE customer_contacts (
 CREATE TABLE wa_conversations (
   id                        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   contact_id                UUID NOT NULL REFERENCES customer_contacts(id),
-  -- janela de 24h: renovada a cada mensagem INBOUND
+  -- reservado p/ migração futura à API oficial (janela de 24h);
+  -- sem uso no gateway não oficial (doc 05)
   service_window_expires_at TIMESTAMPTZ,
   assigned_to_human         UUID,              -- null = IA/fila
   created_at                TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -238,7 +239,8 @@ CREATE TABLE handoff_events (
 );
 
 -- ----------------------------------------------------------------
--- BIBLIOTECA DE TEMPLATES (janela de 24h fechada → template Meta)
+-- BIBLIOTECA DE TEMPLATES — reservada p/ migração futura à API
+-- oficial; sem uso no gateway não oficial (doc 05)
 -- ----------------------------------------------------------------
 CREATE TABLE wa_templates (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),

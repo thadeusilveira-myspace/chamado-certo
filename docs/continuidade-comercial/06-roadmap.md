@@ -33,18 +33,23 @@ clientes com fatos registrados.
 **Critério de saída:** operação usando o radar como fila de trabalho diária;
 primeira medição de pedidos recuperados (🔴 → pedido).
 
-## Fase 3 — Canal oficial + Central de Mensagens (3–5 semanas)
+## Fase 3 — Gateway + Central de Mensagens (2–4 semanas)
 
-**Entrega:** conversas dentro do sistema, via WhatsApp Business Platform.
+**Entrega:** conversas dentro do sistema, via gateway não oficial (doc 05).
 
-- Contratar BSP; conectar o número atual — **priorizar modo coexistência**
-  (mantém o app no celular e traz ~6 meses de histórico — doc 05).
-- Gateway + inbox com contexto do cliente ao lado da conversa.
-- Aprovar os primeiros templates (lembrete de ciclo, confirmação de rota).
-- Ingestão do histórico sincronizado → primeira extração de fatos por IA.
+- Subir Evolution API self-hosted (VPS própria); conectar o número atual
+  via QR code — o app no celular continua funcionando (aparelho conectado).
+- Gateway com **fila de envio disciplinada** (throttle, teto diário,
+  horário comercial) implementada ANTES do primeiro envio pelo sistema.
+- Inbox com contexto do cliente ao lado da conversa; mensagens enviadas
+  pelo celular também entram no registro (webhook captura os dois lados).
+- Ingestão do histórico da conta → primeira extração de fatos por IA.
+- Plano de contingência R1–R3 do doc 05 documentado e testado: número
+  secundário preparado, alerta de desconexão, modo degradado (operar pelo
+  app usando o radar como fila).
 
-**Critério de saída:** 100% das conversas comerciais passando pela Central;
-janela de 24h controlada pelo sistema.
+**Critério de saída:** 100% das conversas comerciais registradas na Central;
+fila de envio e alertas de sessão funcionando; contingência testada.
 
 ## Fase 4 — Observação e Copiloto (4+ semanas)
 
@@ -87,7 +92,7 @@ teste não passa, o projeto não está pronto — está andando.
 | Risco | Mitigação |
 |---|---|
 | Pedidos não serem registrados com disciplina (Fase 1) | Registro tem que ser mais fácil que não registrar (1 toque a partir da conversa); cobrar no ritual diário |
-| Coexistência indisponível p/ o número atual | Decidir cedo (Fase 3): migração total do número vs. exportação manual de histórico |
+| **Número banido pelo WhatsApp** (risco assumido do gateway não oficial) | Disciplina de envio (throttle, tetos, só contatos existentes, opt-out absoluto); Memória Comercial vive no nosso banco, não no aparelho; número secundário aquecido + playbook de recuperação (doc 05, R1) |
+| Protocolo não oficial quebra após update do WhatsApp | Gateway isolado; monitoramento de sessão com alerta; modo degradado: operar pelo app com o radar como fila (doc 05, R2) |
 | IA responder mal uma reclamação | Gatilhos de escalação testados antes de qualquer envio automático; downgrade automático de nível |
-| Quality rating do número cair (bloqueios) | Limites de insistência por ciclo; templates com proposta concreta, não spam |
 | Projeto virar "robô que manda mensagem" | A ordem das fases força: dados → radar → observação → só então automação |

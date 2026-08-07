@@ -40,7 +40,7 @@ e passa a ser quem *treina e supervisiona* o sistema.
 | **Memória Comercial** | Perfil comportamental de cada cliente: frequência, dia/horário de compra, quantidades, ticket, pessoa de contato, estilo de conversa, gatilhos que funcionam | [02-memoria-comercial.md](02-memoria-comercial.md) |
 | **Radar de Pedidos** | Todo dia, classifica a carteira inteira: pedido confirmado / precisa de contato hoje / **pedido em risco** / sem necessidade. Mostra o potencial em R$ do que está faltando | [03-radar-de-pedidos.md](03-radar-de-pedidos.md) |
 | **Aprendizado + Automação** | Fase de observação (IA assiste a operação humana e rotula `abordagem → resposta → desfecho`), depois 3 níveis: copiloto → piloto supervisionado → carteira autônoma | [04-aprendizado-e-automacao.md](04-aprendizado-e-automacao.md) |
-| **Plataforma WhatsApp** | WhatsApp Business Platform (API oficial) com webhooks, janela de 24h e templates aprovados — não automação de navegador | [05-whatsapp-plataforma.md](05-whatsapp-plataforma.md) |
+| **Gateway WhatsApp** | Gateway não oficial (decisão assumida: Evolution API/Baileys sobre o número atual), com disciplina de envio e plano de contingência para o risco de banimento | [05-whatsapp-plataforma.md](05-whatsapp-plataforma.md) |
 
 ## Mudança de mentalidade operacional
 
